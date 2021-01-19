@@ -128,6 +128,7 @@ byte CheckTimeOut(void);
 #define STOP -1
 
 
+#define thresholdInfrared 50
 #define speed_ini 400
 #define speed_max 512
 
@@ -141,6 +142,7 @@ byte CheckTimeOut(void);
 void infiniteTurn(unsigned char id) {
   dxl_write_word(id,  AX12_CTAB_ID_CWAngleLimitLo, 0 ) ;
   int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
   {
     TxDString("problem, code=");
     TxDWord16(result);
@@ -149,6 +151,7 @@ void infiniteTurn(unsigned char id) {
   }
   dxl_write_word(id,  AX12_CTAB_ID_CCWAngleLimitLo, 0 ) ;
   result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
   {
     TxDString("problem, code=");
     TxDWord16(result);
@@ -173,6 +176,7 @@ void normalTurn(unsigned char id) {
   }
   dxl_write_word(id,  AX12_CTAB_ID_CCWAngleLimitLo, 1023 ) ;
   result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
   {
     TxDString("problem, code=");
     TxDWord16(result);
@@ -471,6 +475,125 @@ void buzzWithDelay(unsigned char sensor, int note, int time) {
 /////////////////////////////////////////////////////////////////////////
 
 
+void initSequence(int* state){
+  // play some music
+  buzzWithDelay(SENSOR, 30, 500);
+  buzzWithDelay(SENSOR, 40, 200);
+  buzzWithDelay(SENSOR, 50, 200);
+
+  // blink some lights
+  TxDString("blink!!\n");
+  int z;
+  for(z=0; z<3; z++)
+  {
+
+    GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
+    GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
+    mDelay(250);
+
+    GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
+    GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
+    mDelay(250);
+
+    GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
+    GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
+    mDelay(250);
+
+    GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
+    GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
+    mDelay(250);
+
+    GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
+    GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
+    mDelay(250);
+
+    GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
+    GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
+    mDelay(250);
+
+    GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
+    GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
+    mDelay(250);
+
+    /* TxDString("lights on...\n") ; */
+    /* lightOn(MOTOR_up_right); */
+    /* lightOn(MOTOR_up_left); */
+    /* lightOn(MOTOR_down_left); */
+    /* lightOn(MOTOR_down_right); */
+    /* mDelay(2) ; */
+    /* TxDString("lights oFF...\n") ; */
+    /* lightOff(MOTOR_up_right); */
+    /* lightOff(MOTOR_up_left); */
+    /* lightOff(MOTOR_down_left); */
+    /* lightOff(MOTOR_down_right); */
+  }
+
+  *state = GO_TO_CENTER;
+}
+
+
+void spin(int speed){
+  setSpeed(MOTOR_up_left, speed);
+  setSpeed(MOTOR_up_right, speed);
+  setSpeed(MOTOR_down_left, speed);
+  setSpeed(MOTOR_down_right, speed);
+}
+
+void forward(int speed){
+  // go straight assuming its a 4_wheeled robot to the center of the field
+  setSpeed(MOTOR_up_left, speed);
+  setSpeed(MOTOR_down_left, speed);
+  // /!\ since the motors are set in opposite directions, the speeds should
+  //     be opposite for each side
+  setSpeed(MOTOR_up_right, -speed);
+  setSpeed(MOTOR_down_right, -speed);
+}
+
+void goToCenterSequence(int* state){
+  while (*state == GO_TO_CENTER) {  // the temporisation should be adapted
+    TxDString("\nGO TO CENTER\n") ;
+    forward(speed_ini);
+
+    // advance for 3s, maybe adapt...
+    mDelay(3);
+    *state=SEEKING;
+  }
+}
+
+void seekSequence(int* state){
+  unsigned char field;
+  // begin the "seeking for an opponent" phase
+  while (*state == SEEKING) {
+    spin(speed_ini);  // the robot starts spinning around
+    centerInfraRed(SENSOR, &field);
+    //
+    TxDString("\nSEEKING SENSOR VALUE: ") ;
+    TxDByte16(field);
+    TxDString("\n") ;
+    // opponent detection will result in an attitude change
+    if (field >= thresholdInfrared)  // indeed this condition should be explicit
+      *state = CHASING;
+  }
+}
+
+void chaseSequence(int* state){
+  unsigned char field;
+  // the robot will focus the opponent and try to push him away,
+  // as hard as possible
+  while (*state == CHASING) {
+    forward(speed_max);
+    centerInfraRed(SENSOR, &field);
+    //
+    TxDString("\nCHASING SENSOR VALUE: ") ;
+    TxDByte16(field);
+    TxDString("\n") ;
+    // if, for whatever reason, the robot does not detect any obstacle anymore
+    // it returns to its seeking opponent phase
+    if (field<thresholdInfrared/2)
+      *state = SEEKING;
+  }
+}
+
 int main(void)
 {
   // --------------DO NOT TOUCH!!------------------------ //
@@ -495,19 +618,15 @@ int main(void)
 
   // here, touch all u like :-) 
 
-  int thresholdInfrared = 50 ;
   // state will define the robot's attitude towards its environment
   // it implements a state machine
   // thats why we call it state :-)
   int state;
 
-
-  state= INIT;
   infiniteTurn(MOTOR_up_left);
   infiniteTurn(MOTOR_up_right);
   infiniteTurn(MOTOR_down_left);
   infiniteTurn(MOTOR_down_right);
-  unsigned char field;
 
   //  printf("Resetting motors\n") ;
   setSpeed(MOTOR_up_left, 0);
@@ -526,126 +645,23 @@ int main(void)
  //   TxDString("\n");
  // }
 
+  state = INIT;
+
   // state should equal INIT only at the beginning of each match
-  while(state!=STOP)
+  while(state != STOP)
   {
-
-    while (state==INIT) {
-      int z = 0;
-      // play some music
-      buzzWithDelay(SENSOR, 30, 500);
-      buzzWithDelay(SENSOR, 40, 200);
-      buzzWithDelay(SENSOR, 50, 200);
-
-      // blink some lights
-      TxDString("blink!!\n") ;
-      for(z=0; z<3; z++)
-      {
-
-        GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
-        GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-        mDelay(250);
-
-        GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-        GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-        mDelay(250);
-
-        GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-        GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-        mDelay(250);
-
-        GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-        GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
-        mDelay(250);
-
-        GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
-        GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
-        mDelay(250);
-
-        GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
-        GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
-        mDelay(250);
-
-        GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
-        GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
-        mDelay(250);
-
-        /* TxDString("lights on...\n") ; */
-        /* lightOn(MOTOR_up_right); */
-        /* lightOn(MOTOR_up_left); */
-        /* lightOn(MOTOR_down_left); */
-        /* lightOn(MOTOR_down_right); */
-        /* mDelay(2) ; */
-        /* TxDString("lights oFF...\n") ; */
-        /* lightOff(MOTOR_up_right); */
-        /* lightOff(MOTOR_up_left); */
-        /* lightOff(MOTOR_down_left); */
-        /* lightOff(MOTOR_down_right); */
-      }
-
-      state=GO_TO_CENTER;
-
+    if(state == INIT){
+      initSequence(&state);
     }
-
-
-    while (state==GO_TO_CENTER) {  // the temporisation should be adapted
-      TxDString("\nGO TO CENTER\n") ;
-      // go straight assuming its a 4_wheeled robot to the center of the field
-      setSpeed(MOTOR_up_left, speed_ini);
-      setSpeed(MOTOR_down_left, speed_ini);
-      // /!\ since the motors are set in opposite directions, the speeds should
-      //     be opposite for each side
-      setSpeed(MOTOR_up_right, -speed_ini);
-      setSpeed(MOTOR_down_right, -speed_ini);
-
-      // advance for 3s, maybe adapt...
-      mDelay(3);
-      state=SEEKING;
+    if(state == GO_TO_CENTER){
+      goToCenterSequence(&state);
     }
-
-
-
-    // begin the "seeking for an opponent" phase
-    while (state==SEEKING) {
-      // the robot starts spinning around
-      setSpeed(MOTOR_up_left, speed_ini);
-      setSpeed(MOTOR_up_right, speed_ini);
-      setSpeed(MOTOR_down_left, speed_ini);
-      setSpeed(MOTOR_down_right, speed_ini);
-      centerInfraRed(SENSOR, &field);
-      {
-        TxDString("\nSEEKING SENSOR VALUE") ;
-        TxDByte16(field);
-        TxDString("\n") ;
-      }
-
-      // opponent detection will result in an attitude change
-      if (field >= thresholdInfrared)  // indeed this condition should be explicit
-        state = CHASING;
-
+    if(state == SEEKING){
+      seekSequence(&state);
     }
-
-    // the robot will focus the opponent and try to push him away,
-    // as hard as possible
-    while (state==CHASING) {
-      setSpeed(MOTOR_up_left, speed_max);
-      setSpeed(MOTOR_down_left, speed_max);
-      setSpeed(MOTOR_up_right, -speed_max);
-      setSpeed(MOTOR_down_right, -speed_max);
-      centerInfraRed(SENSOR, &field);
-      { TxDString("\nCHASING SENSOR VALUE") ;
-        TxDByte16(field);
-        TxDString("\n") ;
-      }
-
-      // if, for whatever reason, the robot does not detect any obstacle anymore
-      // it returns to its seeking opponent phase
-      if (field<thresholdInfrared/2)
-        state=SEEKING;
-
-
+    if(state == CHASING){
+      chaseSequence(&state);
     }
-
   }
 
   while (1) {} ;
