@@ -6,3 +6,9 @@ Pour envoyer au robot: `./connect.sh` suivi de:
 - L + entrée
 - ctrl^A :exec !! cat CM530.bin
 - reboot
+
+# SPEC CODE
+
+- détection bordures
+- mode poursuite
+- (Optional) mode setup

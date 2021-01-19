@@ -491,6 +491,11 @@ int main(void)
   setSpeed(MOTOR_down_right, 0);
 
   // state should equal INIT only at the beginning of each match
+  //setSpeed(MOTOR_up_left, speed_max);
+  setSpeed(MOTOR_up_right, speed_max);
+  //setSpeed(MOTOR_down_left, speed_max);
+  //setSpeed(MOTOR_down_right, speed_max);
+  while(1){}
 
   while(state!=STOP)
   {
