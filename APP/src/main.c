@@ -98,7 +98,7 @@ void PrintCommStatus(int);
 void PrintErrorCode(void);
 void TxDByte_DXL(byte);
 byte RxDByte_DXL(void);
-void TxDString(byte*);
+void TxDString(char*);
 void TxDWord16(word);
 void TxDByte16(byte);
 void TxDByte_PC(byte);
@@ -141,8 +141,20 @@ byte CheckTimeOut(void);
 void infiniteTurn(unsigned char id) {
   dxl_write_word(id,  AX12_CTAB_ID_CWAngleLimitLo, 0 ) ;
   int result =  dxl_get_result();
+  {
+    TxDString("problem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+    return;
+  }
   dxl_write_word(id,  AX12_CTAB_ID_CCWAngleLimitLo, 0 ) ;
   result =  dxl_get_result();
+  {
+    TxDString("problem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+    return;
+  }
   TxDString("\nCM5 infinite rotation mode set\n");
 }
 
@@ -152,8 +164,21 @@ void infiniteTurn(unsigned char id) {
 void normalTurn(unsigned char id) {
   dxl_write_word(id,  AX12_CTAB_ID_CWAngleLimitLo, 0 ) ;
   int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("problem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+    return;
+  }
   dxl_write_word(id,  AX12_CTAB_ID_CCWAngleLimitLo, 1023 ) ;
   result =  dxl_get_result();
+  {
+    TxDString("problem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+    return;
+  }
   TxDString("\nCM5 normal rotation mode set\n");
 }
 
@@ -172,11 +197,11 @@ void setSpeed(unsigned char id, int speed) {
   dxl_write_word(id, AX12_CTAB_ID_MovingSpeedLo, order ) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("problem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("problem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // move motor to a given angle, only works when nOt in infinite turn mode
@@ -196,11 +221,11 @@ void setAngle(unsigned char id, int angle, int speed) {
   dxl_write_word(id,  AX12_CTAB_ID_GoalPositionLo, angle_norm ) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code==");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code==");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 
@@ -210,11 +235,11 @@ void lightOn(unsigned char id) {
   dxl_write_byte(id, AX12_CTAB_ID_Led, 1 ) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code==");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code==");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // turns off motor light
@@ -223,11 +248,11 @@ void lightOff(unsigned char id) {
   dxl_write_byte(id, AX12_CTAB_ID_Led, 0 ) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code==");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code==");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // returns the current motor's speed
@@ -238,11 +263,11 @@ void getSpeed(unsigned char id, unsigned int* outSpeed) {
   *outSpeed = dxl_read_word(id, AX12_CTAB_ID_MovingSpeedLo) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 
@@ -254,11 +279,11 @@ void getAngle(unsigned char id, unsigned int* outAngle) {
   *outAngle = dxl_read_word(id, AX12_CTAB_ID_PresentPosLo) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 /////////////////////////////////////////////////////
@@ -272,11 +297,11 @@ void checkObstacle(unsigned char sensor, unsigned char* infoObst) {
   *infoObst = dxl_read_byte(sensor, AXS1_CTAB_ID_ObstacleDetectionFlag) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 
 }
 
@@ -286,13 +311,13 @@ void checkObstacle(unsigned char sensor, unsigned char* infoObst) {
 // parameter boolLight: pointer to store data read from AX-S1
 void checkLuminosity(unsigned char sensor, unsigned char* info)  {
   *info = dxl_read_byte(sensor, AXS1_CTAB_ID_LuminosityDetectionFlag) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-     }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 
 }
 // returns the left infrared reading. Is a numerical value not just a flag!
@@ -302,11 +327,11 @@ void leftInfraRed(unsigned char sensor, unsigned char* info) {
   *info = dxl_read_byte(sensor, AXS1_CTAB_ID_LeftIRSensorData) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // returns the center infrared reading. Is a numerical value not just a flag!
@@ -314,13 +339,13 @@ void leftInfraRed(unsigned char sensor, unsigned char* info) {
 // parameter sideIR: pointer to store data read from AX-S1
 void centerInfraRed(unsigned char sensor, unsigned char* info) {
   *info = dxl_read_byte(sensor, AXS1_CTAB_ID_CenterIRSensorData) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-    }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // returns the right infrared reading. Is a numerical value not just a flag!
@@ -328,13 +353,13 @@ void centerInfraRed(unsigned char sensor, unsigned char* info) {
 // parameter sideIR: pointer to store data read from AX-S1
 void rightInfraRed(unsigned char sensor, unsigned char* info) {
   *info = dxl_read_byte(sensor, AXS1_CTAB_ID_RightIRSensorData) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-     }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 
@@ -343,13 +368,13 @@ void rightInfraRed(unsigned char sensor, unsigned char* info) {
 // parameter leftLum: pointer to store data read from AX-S1
 void leftLuminosity(unsigned char sensor, unsigned char* info) {
   *info = dxl_read_byte(sensor,AXS1_CTAB_ID_LeftLuminosity ) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-     }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // returns the central light sensor reading. Is a numerical value not just a flag!
@@ -357,13 +382,13 @@ void leftLuminosity(unsigned char sensor, unsigned char* info) {
 // parameter centerLum: pointer to store data read from AX-S1
 void centerLuminosity(unsigned char sensor, unsigned char* info) {
   *info = dxl_read_byte(sensor,AXS1_CTAB_ID_CenterLuminosity ) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-     }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // returns the right light sensor reading. Is a numerical value not just a flag!
@@ -373,11 +398,11 @@ void rightLuminosity(unsigned char sensor, unsigned char* info) {
   *info = dxl_read_byte(sensor,AXS1_CTAB_ID_RightLuminosity ) ;
   int result =  dxl_get_result();
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 
@@ -385,26 +410,26 @@ void rightLuminosity(unsigned char sensor, unsigned char* info) {
 // untested, see documentation of AX-S1!!
 void dataSound(unsigned char sensor, unsigned int* info) {
   *info = dxl_read_word(sensor,AXS1_CTAB_ID_SoundData) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-     }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 
 //helper function
 void noteBuzz(unsigned char sensor, int note) {
   dxl_write_byte(sensor, AXS1_CTAB_ID_BuzzerIndex, note) ;
-   int result =  dxl_get_result();
-   if( result != COMM_RXSUCCESS	)
-     {
-       TxDString("\nproblem, code=");
-       TxDWord16(result);
-       TxDString("!!!\n");
-     }
+  int result =  dxl_get_result();
+  if( result != COMM_RXSUCCESS	)
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 //helper function
@@ -416,11 +441,11 @@ void timeBuzz(unsigned char sensor, int time) {
     result =  dxl_get_result();
   }
   if( result != COMM_RXSUCCESS	)
-    {
-      TxDString("\nproblem, code=");
-      TxDWord16(result);
-      TxDString("!!!\n");
-    }
+  {
+    TxDString("\nproblem, code=");
+    TxDWord16(result);
+    TxDString("!!!\n");
+  }
 }
 
 // play a note of given duration on the AX-S1.
@@ -432,7 +457,7 @@ void buzzWithDelay(unsigned char sensor, int note, int time) {
   noteBuzz(sensor, note);
 
   for (k=0; k<time; k++) {
-       mDelay(1) ;
+    mDelay(1) ;
   }
 
   // shut off buzz
@@ -490,131 +515,136 @@ int main(void)
   setSpeed(MOTOR_down_left, 0);
   setSpeed(MOTOR_down_right, 0);
 
-  // state should equal INIT only at the beginning of each match
-  //setSpeed(MOTOR_up_left, speed_max);
-  setSpeed(MOTOR_up_right, speed_max);
-  //setSpeed(MOTOR_down_left, speed_max);
-  //setSpeed(MOTOR_down_right, speed_max);
-  while(1){}
+ // test capteurs
+ // while(1){
+ //   centerInfraRed(SENSOR, &field);
+ //   TxDString("CenterInfraRed, CenterLuminosity: ");
+ //   TxDByte16(field);
+ //   TxDString("; ");
+ //   centerLuminosity(SENSOR, &field);
+ //   TxDByte16(field);
+ //   TxDString("\n");
+ // }
 
+  // state should equal INIT only at the beginning of each match
   while(state!=STOP)
   {
 
-     while (state==INIT) {
-       int z = 0;
-     // play some music
-       buzzWithDelay(SENSOR, 30, 500);
-       buzzWithDelay(SENSOR, 40, 200);
-       buzzWithDelay(SENSOR, 50, 200);
+    while (state==INIT) {
+      int z = 0;
+      // play some music
+      buzzWithDelay(SENSOR, 30, 500);
+      buzzWithDelay(SENSOR, 40, 200);
+      buzzWithDelay(SENSOR, 50, 200);
 
-       // blink some lights
-       TxDString("blink!!\n") ;
-       for(z=0; z<3; z++)
-       {
+      // blink some lights
+      TxDString("blink!!\n") ;
+      for(z=0; z<3; z++)
+      {
 
-	 GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
-	 GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
+        GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
+        mDelay(250);
 
-	 GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-	 GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
+        GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
+        mDelay(250);
 
-	 GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-	 GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
+        GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
+        mDelay(250);
 
-	 GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-	 GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
+        GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
+        mDelay(250);
 
-	 GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
-	 GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
+        GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
+        mDelay(250);
 
-	 GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
-	 GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
+        GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
+        mDelay(250);
 
-	 GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
-	 GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
-	 mDelay(250);
+        GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
+        GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
+        mDelay(250);
 
-	 /* TxDString("lights on...\n") ; */
-	 /* lightOn(MOTOR_up_right); */
-         /* lightOn(MOTOR_up_left); */
-         /* lightOn(MOTOR_down_left); */
-         /* lightOn(MOTOR_down_right); */
-	 /* mDelay(2) ; */
-         /* TxDString("lights oFF...\n") ; */
-         /* lightOff(MOTOR_up_right); */
-         /* lightOff(MOTOR_up_left); */
-         /* lightOff(MOTOR_down_left); */
-         /* lightOff(MOTOR_down_right); */
-       }
+        /* TxDString("lights on...\n") ; */
+        /* lightOn(MOTOR_up_right); */
+        /* lightOn(MOTOR_up_left); */
+        /* lightOn(MOTOR_down_left); */
+        /* lightOn(MOTOR_down_right); */
+        /* mDelay(2) ; */
+        /* TxDString("lights oFF...\n") ; */
+        /* lightOff(MOTOR_up_right); */
+        /* lightOff(MOTOR_up_left); */
+        /* lightOff(MOTOR_down_left); */
+        /* lightOff(MOTOR_down_right); */
+      }
 
-       state=GO_TO_CENTER;
+      state=GO_TO_CENTER;
 
-     }
-
-
-     while (state==GO_TO_CENTER) {  // the temporisation should be adapted
-       TxDString("\nGO TO CENTER\n") ;
-       // go straight assuming its a 4_wheeled robot to the center of the field
-       setSpeed(MOTOR_up_left, speed_ini);
-       setSpeed(MOTOR_down_left, speed_ini);
-       // /!\ since the motors are set in opposite directions, the speeds should
-       //     be opposite for each side
-       setSpeed(MOTOR_up_right, -speed_ini);
-       setSpeed(MOTOR_down_right, -speed_ini);
-
-       // advance for 3s, maybe adapt...
-       mDelay(3);
-       state=SEEKING;
-     }
+    }
 
 
+    while (state==GO_TO_CENTER) {  // the temporisation should be adapted
+      TxDString("\nGO TO CENTER\n") ;
+      // go straight assuming its a 4_wheeled robot to the center of the field
+      setSpeed(MOTOR_up_left, speed_ini);
+      setSpeed(MOTOR_down_left, speed_ini);
+      // /!\ since the motors are set in opposite directions, the speeds should
+      //     be opposite for each side
+      setSpeed(MOTOR_up_right, -speed_ini);
+      setSpeed(MOTOR_down_right, -speed_ini);
 
-     // begin the "seeking for an opponent" phase
-     while (state==SEEKING) {
-       // the robot starts spinning around
-       setSpeed(MOTOR_up_left, speed_ini);
-       setSpeed(MOTOR_up_right, speed_ini);
-       setSpeed(MOTOR_down_left, speed_ini);
-       setSpeed(MOTOR_down_right, speed_ini);
-       centerInfraRed(SENSOR, &field);
-       {
-	 TxDString("\nSEEKING SENSOR VALUE") ;
-	 TxDByte16(field);
-	 TxDString("\n") ;
-       }
+      // advance for 3s, maybe adapt...
+      mDelay(3);
+      state=SEEKING;
+    }
 
-       // opponent detection will result in an attitude change
-       if (field >= thresholdInfrared)  // indeed this condition should be explicit
-         state = CHASING;
 
-     }
+
+    // begin the "seeking for an opponent" phase
+    while (state==SEEKING) {
+      // the robot starts spinning around
+      setSpeed(MOTOR_up_left, speed_ini);
+      setSpeed(MOTOR_up_right, speed_ini);
+      setSpeed(MOTOR_down_left, speed_ini);
+      setSpeed(MOTOR_down_right, speed_ini);
+      centerInfraRed(SENSOR, &field);
+      {
+        TxDString("\nSEEKING SENSOR VALUE") ;
+        TxDByte16(field);
+        TxDString("\n") ;
+      }
+
+      // opponent detection will result in an attitude change
+      if (field >= thresholdInfrared)  // indeed this condition should be explicit
+        state = CHASING;
+
+    }
 
     // the robot will focus the opponent and try to push him away,
     // as hard as possible
-     while (state==CHASING) {
-       setSpeed(MOTOR_up_left, speed_max);
-       setSpeed(MOTOR_down_left, speed_max);
-       setSpeed(MOTOR_up_right, -speed_max);
-       setSpeed(MOTOR_down_right, -speed_max);
-       centerInfraRed(SENSOR, &field);
-       { TxDString("\nCHASING SENSOR VALUE") ;
-	 TxDByte16(field);
-	 TxDString("\n") ;
-       }
+    while (state==CHASING) {
+      setSpeed(MOTOR_up_left, speed_max);
+      setSpeed(MOTOR_down_left, speed_max);
+      setSpeed(MOTOR_up_right, -speed_max);
+      setSpeed(MOTOR_down_right, -speed_max);
+      centerInfraRed(SENSOR, &field);
+      { TxDString("\nCHASING SENSOR VALUE") ;
+        TxDByte16(field);
+        TxDString("\n") ;
+      }
 
-       // if, for whatever reason, the robot does not detect any obstacle anymore
-       // it returns to its seeking opponent phase
-       if (field<thresholdInfrared/2)
-         state=SEEKING;
+      // if, for whatever reason, the robot does not detect any obstacle anymore
+      // it returns to its seeking opponent phase
+      if (field<thresholdInfrared/2)
+        state=SEEKING;
 
 
-     }
+    }
 
   }
 
@@ -646,41 +676,41 @@ void RCC_Configuration(void)
   HSEStartUpStatus = RCC_WaitForHSEStartUp();
 
   if(HSEStartUpStatus == SUCCESS)
+  {
+    /* Enable Prefetch Buffer */
+    FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
+
+    /* Flash 2 wait state */
+    FLASH_SetLatency(FLASH_Latency_2);
+
+    /* HCLK = SYSCLK */
+    RCC_HCLKConfig(RCC_SYSCLK_Div1);
+
+    /* PCLK2 = HCLK */
+    RCC_PCLK2Config(RCC_HCLK_Div1);
+
+    /* PCLK1 = HCLK/2 */
+    RCC_PCLK1Config(RCC_HCLK_Div2);
+
+    /* PLLCLK = 8MHz * 9 = 72 MHz */
+    RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9);
+
+    /* Enable PLL */
+    RCC_PLLCmd(ENABLE);
+
+    /* Wait till PLL is ready */
+    while(RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET)
     {
-      /* Enable Prefetch Buffer */
-      FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
-
-      /* Flash 2 wait state */
-      FLASH_SetLatency(FLASH_Latency_2);
-
-      /* HCLK = SYSCLK */
-      RCC_HCLKConfig(RCC_SYSCLK_Div1);
-
-      /* PCLK2 = HCLK */
-      RCC_PCLK2Config(RCC_HCLK_Div1);
-
-      /* PCLK1 = HCLK/2 */
-      RCC_PCLK1Config(RCC_HCLK_Div2);
-
-      /* PLLCLK = 8MHz * 9 = 72 MHz */
-      RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9);
-
-      /* Enable PLL */
-      RCC_PLLCmd(ENABLE);
-
-      /* Wait till PLL is ready */
-      while(RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET)
-	{
-	}
-
-      /* Select PLL as system clock source */
-      RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
-
-      /* Wait till PLL is used as system clock source */
-      while(RCC_GetSYSCLKSource() != 0x08)
-	{
-	}
     }
+
+    /* Select PLL as system clock source */
+    RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
+
+    /* Wait till PLL is used as system clock source */
+    while(RCC_GetSYSCLKSource() != 0x08)
+    {
+    }
+  }
 
   /* Enable peripheral clocks --------------------------------------------------*/
 
@@ -786,34 +816,34 @@ void USART_Configuration(u8 PORT, u32 baudrate)
 
 
   if( PORT == USART_DXL )
-    {
-      USART_DeInit(USART1);
-      mDelay(10);
-      /* Configure the USART1 */
-      USART_Init(USART1, &USART_InitStructure);
+  {
+    USART_DeInit(USART1);
+    mDelay(10);
+    /* Configure the USART1 */
+    USART_Init(USART1, &USART_InitStructure);
 
-      /* Enable USART1 Receive and Transmit interrupts */
-      USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
-      //USART_ITConfig(USART1, USART_IT_TC, ENABLE);
+    /* Enable USART1 Receive and Transmit interrupts */
+    USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);
+    //USART_ITConfig(USART1, USART_IT_TC, ENABLE);
 
-      /* Enable the USART1 */
-      USART_Cmd(USART1, ENABLE);
-    }
+    /* Enable the USART1 */
+    USART_Cmd(USART1, ENABLE);
+  }
 
   else if( PORT == USART_PC )
-    {
-      USART_DeInit(USART3);
-      mDelay(10);
-      /* Configure the USART3 */
-      USART_Init(USART3, &USART_InitStructure);
+  {
+    USART_DeInit(USART3);
+    mDelay(10);
+    /* Configure the USART3 */
+    USART_Init(USART3, &USART_InitStructure);
 
-      /* Enable USART3 Receive and Transmit interrupts */
-      //USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);
-      //USART_ITConfig(USART3, USART_IT_TC, ENABLE);
+    /* Enable USART3 Receive and Transmit interrupts */
+    //USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);
+    //USART_ITConfig(USART3, USART_IT_TC, ENABLE);
 
-      /* Enable the USART3 */
-      USART_Cmd(USART3, ENABLE);
-    }
+    /* Enable the USART3 */
+    USART_Cmd(USART3, ENABLE);
+  }
 }
 
 void DisableUSART1(void)
@@ -851,9 +881,9 @@ byte RxDByte_DXL(void)
   byte bTemp;
 
   while(1)
-    {
-      if(gbRxBufferReadPointer != gbRxBufferWritePointer) break;
-    }
+  {
+    if(gbRxBufferReadPointer != gbRxBufferWritePointer) break;
+  }
 
   bTemp = gbpRxInterruptBuffer[gbRxBufferReadPointer];
   gbRxBufferReadPointer++;
@@ -866,7 +896,7 @@ byte RxDByte_DXL(void)
 void PrintCommStatus(int CommStatus)
 {
   switch(CommStatus)
-    {
+  {
     case COMM_TXFAIL:
       TxDString("COMM_TXFAIL: Failed transmit instruction packet!\n");
       break;
@@ -894,7 +924,7 @@ void PrintCommStatus(int CommStatus)
     default:
       TxDString("This is unknown error code!\n");
       break;
-    }
+  }
 }
 
 // Print error bit of status packet
@@ -922,7 +952,7 @@ void PrintErrorCode()
     TxDString("Instruction code error!\n");
 }
 
-void TxDString(byte *bData)
+void TxDString(char *bData)
 {
   while (*bData)
     TxDByte_PC(*bData++);
@@ -994,15 +1024,15 @@ void Timer_Configuration(void)
 void TimerInterrupt_1ms(void) //OLLO CONTROL
 {
   if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET) // 1ms//
-    {
-      TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
+  {
+    TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
 
-      capture = TIM_GetCapture1(TIM2);
-      TIM_SetCompare1(TIM2, capture + CCR1_Val);
+    capture = TIM_GetCapture1(TIM2);
+    TIM_SetCompare1(TIM2, capture + CCR1_Val);
 
-      if(gw1msCounter > 0)
-	gw1msCounter--;
-    }
+    if(gw1msCounter > 0)
+      gw1msCounter--;
+  }
 }
 
 /*__interrupt*/
