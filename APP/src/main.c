@@ -113,8 +113,8 @@ byte CheckTimeOut(void);
 ////////////////////////////////////////////////////////////
 
 // change IDs here if the IDs of your motors/sensors are different
-#define MOTOR_down_right 2
-#define MOTOR_down_left 3
+#define MOTOR_down_left 1
+#define MOTOR_down_right 3
 #define MOTOR_up_left 4
 #define MOTOR_up_right 1
 #define SENSOR 100
@@ -278,7 +278,7 @@ void getSpeed(unsigned char id, unsigned int* outSpeed) {
 // returns the current motor's angle,  infinite turn must be disabled to use this function
 // This functions does not return anything but stores the speed in its 2nd parameter which lust be a pointer to int
 // parameter inId: ID of motor
-// parameter outSpeed: pointer to which the speed will be stored
+// parameter outAngle: pointer to which the angle will be stored
 void getAngle(unsigned char id, unsigned int* outAngle) {
   *outAngle = dxl_read_word(id, AX12_CTAB_ID_PresentPosLo) ;
   int result =  dxl_get_result();
@@ -289,6 +289,7 @@ void getAngle(unsigned char id, unsigned int* outAngle) {
     TxDString("!!!\n");
   }
 }
+
 
 /////////////////////////////////////////////////////
 ////////////////////////////// AX S1 ////////////////
@@ -533,20 +534,21 @@ void initSequence(int* state){
 
 
 void spin(int speed){
-  setSpeed(MOTOR_up_left, speed);
-  setSpeed(MOTOR_up_right, speed);
-  setSpeed(MOTOR_down_left, speed);
-  setSpeed(MOTOR_down_right, speed);
+  int _speed = speed;
+  setSpeed(MOTOR_up_left, _speed);
+  setSpeed(MOTOR_up_right, _speed);
+  setSpeed(MOTOR_down_left, _speed);
+  setSpeed(MOTOR_down_right, _speed);
 }
 
 void forward(int speed){
-  // go straight assuming its a 4_wheeled robot to the center of the field
-  setSpeed(MOTOR_up_left, speed);
-  setSpeed(MOTOR_down_left, speed);
-  // /!\ since the motors are set in opposite directions, the speeds should
-  //     be opposite for each side
-  setSpeed(MOTOR_up_right, -speed);
-  setSpeed(MOTOR_down_right, -speed);
+  int _speed = speed;
+  TxDByte16(-_speed);
+  TxDString("\n");
+  setSpeed(MOTOR_up_left, _speed);
+  setSpeed(MOTOR_down_left, _speed);
+  setSpeed(MOTOR_up_right, -_speed);
+  setSpeed(MOTOR_down_right, -_speed);
 }
 
 void goToCenterSequence(int* state){
@@ -556,7 +558,7 @@ void goToCenterSequence(int* state){
 
     // advance for 3s, maybe adapt...
     mDelay(3);
-    *state=SEEKING;
+    *state = SEEKING;
   }
 }
 
@@ -634,16 +636,17 @@ int main(void)
   setSpeed(MOTOR_down_left, 0);
   setSpeed(MOTOR_down_right, 0);
 
- // test capteurs
- // while(1){
- //   centerInfraRed(SENSOR, &field);
- //   TxDString("CenterInfraRed, CenterLuminosity: ");
- //   TxDByte16(field);
- //   TxDString("; ");
- //   centerLuminosity(SENSOR, &field);
- //   TxDByte16(field);
- //   TxDString("\n");
- // }
+  // test capteurs
+  // unsigned char field;
+  // while(1){
+  //   centerInfraRed(SENSOR, &field);
+  //   TxDString("CenterInfraRed, CenterLuminosity: ");
+  //   TxDByte16(field);
+  //   TxDString("; ");
+  //   centerLuminosity(SENSOR, &field);
+  //   TxDByte16(field);
+  //   TxDString("\n");
+  // }
 
   state = INIT;
 
@@ -651,15 +654,19 @@ int main(void)
   while(state != STOP)
   {
     if(state == INIT){
+      TxDString("INIT");
       initSequence(&state);
     }
     if(state == GO_TO_CENTER){
+      TxDString("CENTER");
       goToCenterSequence(&state);
     }
     if(state == SEEKING){
+      TxDString("SEEKING");
       seekSequence(&state);
     }
     if(state == CHASING){
+      TxDString("CHASING");
       chaseSequence(&state);
     }
   }
