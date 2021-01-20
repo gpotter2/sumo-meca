@@ -466,6 +466,218 @@ void buzzWithDelay(unsigned char sensor, int note, int time) {
 
 }
 
+
+
+
+
+
+
+void getDataIR(unsigned char sensor, word* info) {
+  *info = dxl_read_word(sensor, AXS1_CTAB_ID_IRRemoconRXData0);
+  int result = dxl_get_result();
+  if( result != COMM_RXSUCCESS  )
+     {
+       TxDString("\nproblem, code=");
+       TxDWord16(result);
+       TxDString("!!!\n");
+     }
+}
+
+void testIR(word* info) {
+  int test = dxl_read_byte(SENSOR, AXS1_CTAB_ID_IRRemoconArrived);
+  int result = dxl_get_result();
+  if( result != COMM_RXSUCCESS  )
+     {
+       TxDString("\nproblem, code=");
+       TxDWord16(result);
+       TxDString("!!!\n");
+     }
+  if (test) {
+    getDataIR(SENSOR, info);
+    TxDString("Data du IR sensor : ");
+    TxDWord16(*info);
+    TxDString("\n");
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+unsigned char threshold = 100;
+
+
+
+void bordure(int* test) {
+  unsigned char info;
+  leftInfraRed(SENSOR, &info);
+  *test = (info == 255);
+}
+
+
+void ennemi(int* test) {
+  unsigned char info;
+  centerInfraRed(SENSOR, &info);
+  *test = (info > threshold);
+}
+
+
+#define n_event 10;
+#define n_inter 5;
+#define n_music 40;
+
+
+long int music_time = 0;
+long int loop_time = 0; //temps (en millisecondes ?)
+long int seuil = 120000;
+long int* state_clk [n_event]; //dates ou les etats doivent finir quand ils sont actifs, -1 si infinis
+
+for (int i = 0; i < n_event; i++) {
+  state_clk[i] = 0;
+}
+
+int inter [n_inter]; //etats prioritaires, dans l'ordre inverse de prio, 0 si aucun prio (inter comme interruption)
+for (int i = 0; i < n_inter; i++) {
+  inter[i] = 0;
+}
+
+int prio = 0; //indice de l'état en cours dans inter
+int chg_state = 1; //1 quand l'on doit changer d'etat
+
+enum state {WAIT, AVANCE, RECULE, TOUR_ANTITRIG, TOUR_TRIG, AV_DROITE, AV_GAUCHE, R_DROITE, R_GAUCHE, SEARCH};
+
+state s;
+
+/*void start_state(state s, long int time) {
+  state_clk[s] = loop_time + time;
+} //active l'etat s pendant le temps time (en unite looptime (ci-dessous lt))
+*/
+
+void start_state(state n_s, long int time) {
+  prio++;
+  inter[prio] = n_s;
+  if (time == -1) {
+    state_clk[n_s] = -1;
+  } else {
+    state_clk[n_s] = loop_time;
+    loop_time = loop_time - time;
+  }
+  s = n_s;
+}
+
+void kill_state(state n_s) {
+  inter[prio] = 0;
+  state_clk[n_s] = 0;
+  if (prio) {
+    prio--;
+  }
+}
+
+
+void act(int* bord, int* adversary) {
+  if (chg_state) {
+    switch (s) {
+      case WAIT :
+        setSpeed(MOTOR_up_right,0);
+        setSpeed(MOTOR_up_left,0);
+        setSpeed(MOTOR_down_right,0);
+        setSpeed(MOTOR_down_left,0);
+      case AVANCE :
+        setSpeed(MOTOR_up_right,speed_max);
+        setSpeed(MOTOR_up_left,-speed_max);
+        setSpeed(MOTOR_down_right,speed_max);
+        setSpeed(MOTOR_down_left,-speed_max);
+        break;
+      case RECULE :
+        setSpeed(MOTOR_up_right,-speed_max);
+        setSpeed(MOTOR_up_left,speed_max);
+        setSpeed(MOTOR_down_right,-speed_max);
+        setSpeed(MOTOR_down_left,speed_max);
+        break;
+      case TOUR_ANTITRIG :
+        setSpeed(MOTOR_up_right,-speed_max);
+        setSpeed(MOTOR_up_left,-speed_max);
+        setSpeed(MOTOR_down_right,-speed_max);
+        setSpeed(MOTOR_down_left,-speed_max);
+        break;
+      case TOUR_TRIG :
+        setSpeed(MOTOR_up_right,speed_max);
+        setSpeed(MOTOR_up_left,speed_max);
+        setSpeed(MOTOR_down_right,speed_max);
+        setSpeed(MOTOR_down_left,speed_max);
+        break;
+      case AV_DROITE :
+        setSpeed(MOTOR_up_right,speed_max/2);
+        setSpeed(MOTOR_up_left,-speed_max);
+        setSpeed(MOTOR_down_right,speed_max/2);
+        setSpeed(MOTOR_down_left,-speed_max);
+        break;
+      case AV_GAUCHE :
+        setSpeed(MOTOR_up_right,speed_max);
+        setSpeed(MOTOR_up_left,-speed_max/2);
+        setSpeed(MOTOR_down_right,speed_max);
+        setSpeed(MOTOR_down_left,-speed_max/2);
+        break;
+      case R_DROITE :
+        setSpeed(MOTOR_up_right,-speed_max/2);
+        setSpeed(MOTOR_up_left,speed_max);
+        setSpeed(MOTOR_down_right,-speed_max/2);
+        setSpeed(MOTOR_down_left,speed_max);
+        break;
+      case R_GAUCHE :
+        setSpeed(MOTOR_up_right,-speed_max);
+        setSpeed(MOTOR_up_left,speed_max/2);
+        setSpeed(MOTOR_down_right,-speed_max);
+        setSpeed(MOTOR_down_left,speed_max/2);
+        break;
+      case SEARCH :
+        setSpeed(MOTOR_up_right,-speed_max);
+        setSpeed(MOTOR_up_left,-speed_max);
+        setSpeed(MOTOR_down_right,-speed_max);
+        setSpeed(MOTOR_down_left,-speed_max);
+        break;
+    }
+    chg_state = 0;
+  }
+  if (state_clk[s] > loop_time && state_clk[s] != -1) {
+    inter[prio] = 0;
+    chg_state = 1;
+    if (prio) {
+      prio--;
+    }
+    s = inter[prio];
+  }
+  bordure(bord);
+  ennemi(adversary);
+}
+
+
+
+
+
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////   M A I N   L O O P   ////////////////////////
 /////////////////////////////////////////////////////////////////////////
@@ -495,6 +707,63 @@ int main(void)
 
   // here, touch all u like :-) 
 
+
+
+  infiniteTurn(MOTOR_up_right);
+  infiniteTurn(MOTOR_up_left);
+  infiniteTurn(MOTOR_down_right);
+  infiniteTurn(MOTOR_down_left);
+
+
+  int bord;
+  int adversary;
+
+  inter[0] = TOUR_TRIG;
+  state_clk[TOUR_TRIG] = -1;
+
+
+  SysTick_CounterCmd(SysTick_Counter_Enable);
+  gwTimingDelay = seuil;
+
+
+  while (1) {
+
+    if (state_clk[s] != -1) {
+      loop_time = loop_time + seuil - gwTimingDelay;
+    }
+    music_time = music_time + seuil - gwTimingDelay;
+    gwTimingDelay = seuil;
+    
+    act(&bord,&adversary);
+    
+    if (bord) {
+      start_state(R_GAUCHE,2000);
+    }
+    if (adversary) {
+      start_state(AVANCE,-1)
+    }
+
+    if (s == AVANCE && !adversary) {
+      kill_state(AVANCE);
+    }
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
   int thresholdInfrared = 50 ;
   // state will define the robot's attitude towards its environment
   // it implements a state machine
@@ -570,6 +839,8 @@ int main(void)
         GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
         mDelay(250);
 
+*/
+
         /* TxDString("lights on...\n") ; */
         /* lightOn(MOTOR_up_right); */
         /* lightOn(MOTOR_up_left); */
@@ -581,6 +852,7 @@ int main(void)
         /* lightOff(MOTOR_up_left); */
         /* lightOff(MOTOR_down_left); */
         /* lightOff(MOTOR_down_right); */
+/*      
       }
 
       state=GO_TO_CENTER;
@@ -647,6 +919,9 @@ int main(void)
     }
 
   }
+*/
+
+
 
   while (1) {} ;
 
