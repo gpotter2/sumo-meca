@@ -101,8 +101,12 @@ byte RxDByte_DXL(void);
 void TxDString(char*);
 void TxDWord16(word);
 void TxDByte16(byte);
+void TxDInt32(u32);
 void TxDByte_PC(byte);
 void Timer_Configuration(void);
+void startTimeCount();
+void stopTimeCount();
+u32 getTime();
 void mDelay(u32);
 void mDelayBorderCheck(u32, int* state);
 void StartDiscount(s32);
@@ -131,7 +135,7 @@ byte CheckTimeOut(void);
 
 
 #define thresholdInfrared 50
-#define thresholdLuminosity 10
+#define thresholdIRwhite 255
 #define speed_ini 400
 #define speed_max 512
 
@@ -554,13 +558,18 @@ void forward(int speed){
   setSpeed(MOTOR_down_right, -_speed);
 }
 
-// 
+int whiteBorderCount = 0;
 char detectWhiteBorder(int* state){
   unsigned char field;
-  centerLuminosity(SENSOR, &field);
-  if(field >= thresholdLuminosity){
-    *state = FLIP;
-    return 1;
+  centerInfraRed(SENSOR, &field);
+  if(field >= thresholdIRwhite){
+    whiteBorderCount++;
+    if(whiteBorderCount > 5){
+      *state = FLIP;
+      return 1;
+    }
+  } else {
+    whiteBorderCount = 0;
   }
   return 0;
 }
@@ -659,6 +668,16 @@ int main(void)
   setSpeed(MOTOR_up_right, 0);
   setSpeed(MOTOR_down_left, 0);
   setSpeed(MOTOR_down_right, 0);
+
+  //startTimeCount();
+  //while (1){
+  //  u32 t = getTime();
+  //  TxDByte16(t / 1000);
+  //  TxDString("\n");
+  //  if(detectWhiteBorder(&state)){
+  //    buzzWithDelay(SENSOR, 30, 500);
+  //  }
+  //}
 
   //test capteurs
   //unsigned char field;
@@ -1015,6 +1034,11 @@ void TxDWord16(word wSentData)
   TxDByte16(wSentData & 0xff);
 }
 
+void TxDInt32(u32 bSentData){
+  TxDWord16((bSentData >> 16) & 0xffff);
+  TxDWord16(bSentData & 0xffff);
+}
+
 void TxDByte16(byte bSentData)
 {
   byte bTmp;
@@ -1104,38 +1128,38 @@ void SysTick_Configuration(void)
 
 void __ISR_DELAY(void)
 {
-  if (gwTimingDelay != 0x00)
-    gwTimingDelay--;
+  gwTimingDelay++;
+}
+
+void startTimeCount(){
+  /* Enable the SysTick Counter */
+  SysTick_CounterCmd(SysTick_Counter_Enable);
+  gwTimingDelay = 0;
+}
+
+u32 getTime(){
+  return gwTimingDelay;
+}
+
+void stopTimeCount(){
+  /* Disable SysTick Counter */
+  SysTick_CounterCmd(SysTick_Counter_Disable);
+  /* Clear SysTick Counter */
+  SysTick_CounterCmd(SysTick_Counter_Clear);
 }
 
 void mDelay(u32 nTime)
 {
-  /* Enable the SysTick Counter */
-  SysTick_CounterCmd(SysTick_Counter_Enable);
-
-  gwTimingDelay = nTime;
-
-  while(gwTimingDelay != 0);
-
-  /* Disable SysTick Counter */
-  SysTick_CounterCmd(SysTick_Counter_Disable);
-  /* Clear SysTick Counter */
-  SysTick_CounterCmd(SysTick_Counter_Clear);
+  startTimeCount();
+  while(gwTimingDelay < nTime);
+  stopTimeCount();
 }
 
 void mDelayBorderCheck(u32 nTime, int* state)
 {
-  /* Enable the SysTick Counter */
-  SysTick_CounterCmd(SysTick_Counter_Enable);
-
-  gwTimingDelay = nTime;
-
+  startTimeCount();
   while(gwTimingDelay != 0 && !detectWhiteBorder(state));
-
-  /* Disable SysTick Counter */
-  SysTick_CounterCmd(SysTick_Counter_Disable);
-  /* Clear SysTick Counter */
-  SysTick_CounterCmd(SysTick_Counter_Clear);
+  stopTimeCount();
 }
 
 void StartDiscount(s32 StartTime)
