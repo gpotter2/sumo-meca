@@ -104,6 +104,7 @@ void TxDByte16(byte);
 void TxDByte_PC(byte);
 void Timer_Configuration(void);
 void mDelay(u32);
+void mDelayBorderCheck(u32, int* state);
 void StartDiscount(s32);
 byte CheckTimeOut(void);
 
@@ -116,7 +117,7 @@ byte CheckTimeOut(void);
 #define MOTOR_down_left 1
 #define MOTOR_down_right 3
 #define MOTOR_up_left 4
-#define MOTOR_up_right 1
+#define MOTOR_up_right 2
 #define SENSOR 100
 
 
@@ -125,10 +126,12 @@ byte CheckTimeOut(void);
 #define GO_TO_CENTER 1
 #define SEEKING 2
 #define CHASING 3
+#define FLIP 3
 #define STOP -1
 
 
 #define thresholdInfrared 50
+#define thresholdLuminosity 10
 #define speed_ini 400
 #define speed_max 512
 
@@ -471,6 +474,7 @@ void buzzWithDelay(unsigned char sensor, int note, int time) {
 
 }
 
+
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////   M A I N   L O O P   ////////////////////////
 /////////////////////////////////////////////////////////////////////////
@@ -533,22 +537,32 @@ void initSequence(int* state){
 }
 
 
-void spin(int speed){
-  int _speed = speed;
-  setSpeed(MOTOR_up_left, _speed);
-  setSpeed(MOTOR_up_right, _speed);
-  setSpeed(MOTOR_down_left, _speed);
-  setSpeed(MOTOR_down_right, _speed);
+void spin(int speedr, int speedl){
+  int _speedr = speedr;
+  int _speedl = speedl;
+  setSpeed(MOTOR_up_left, _speedl);
+  setSpeed(MOTOR_up_right, _speedr);
+  setSpeed(MOTOR_down_left, _speedl);
+  setSpeed(MOTOR_down_right, _speedr);
 }
 
 void forward(int speed){
   int _speed = speed;
-  TxDByte16(-_speed);
-  TxDString("\n");
   setSpeed(MOTOR_up_left, _speed);
   setSpeed(MOTOR_down_left, _speed);
   setSpeed(MOTOR_up_right, -_speed);
   setSpeed(MOTOR_down_right, -_speed);
+}
+
+// 
+char detectWhiteBorder(int* state){
+  unsigned char field;
+  centerLuminosity(SENSOR, &field);
+  if(field >= thresholdLuminosity){
+    *state = FLIP;
+    return 1;
+  }
+  return 0;
 }
 
 void goToCenterSequence(int* state){
@@ -557,7 +571,7 @@ void goToCenterSequence(int* state){
     forward(speed_ini);
 
     // advance for 3s, maybe adapt...
-    mDelay(3);
+    mDelayBorderCheck(3000, state);
     *state = SEEKING;
   }
 }
@@ -566,7 +580,9 @@ void seekSequence(int* state){
   unsigned char field;
   // begin the "seeking for an opponent" phase
   while (*state == SEEKING) {
-    spin(speed_ini);  // the robot starts spinning around
+    if(detectWhiteBorder(state))
+      break;
+    spin(speed_ini, speed_ini);  // the robot starts spinning around
     centerInfraRed(SENSOR, &field);
     //
     TxDString("\nSEEKING SENSOR VALUE: ") ;
@@ -583,6 +599,8 @@ void chaseSequence(int* state){
   // the robot will focus the opponent and try to push him away,
   // as hard as possible
   while (*state == CHASING) {
+    if(detectWhiteBorder(state))
+      break;
     forward(speed_max);
     centerInfraRed(SENSOR, &field);
     //
@@ -594,6 +612,12 @@ void chaseSequence(int* state){
     if (field<thresholdInfrared/2)
       *state = SEEKING;
   }
+}
+
+void flipSequence(int* state){
+  spin(speed_ini, speed_max);
+  mDelay(2000);
+  *state = SEEKING; 
 }
 
 int main(void)
@@ -636,17 +660,17 @@ int main(void)
   setSpeed(MOTOR_down_left, 0);
   setSpeed(MOTOR_down_right, 0);
 
-  // test capteurs
-  // unsigned char field;
-  // while(1){
-  //   centerInfraRed(SENSOR, &field);
-  //   TxDString("CenterInfraRed, CenterLuminosity: ");
-  //   TxDByte16(field);
-  //   TxDString("; ");
-  //   centerLuminosity(SENSOR, &field);
-  //   TxDByte16(field);
-  //   TxDString("\n");
-  // }
+  //test capteurs
+  //unsigned char field;
+  //while(1){
+  //  centerInfraRed(SENSOR, &field);
+  //  TxDString("CenterInfraRed, CenterLuminosity: ");
+  //  TxDByte16(field);
+  //  TxDString("; ");
+  //  centerLuminosity(SENSOR, &field);
+  //  TxDByte16(field);
+  //  TxDString("\n");
+  //}
 
   state = INIT;
 
@@ -654,20 +678,24 @@ int main(void)
   while(state != STOP)
   {
     if(state == INIT){
-      TxDString("INIT");
+      TxDString("INIT\n");
       initSequence(&state);
     }
     if(state == GO_TO_CENTER){
-      TxDString("CENTER");
+      TxDString("CENTER\n");
       goToCenterSequence(&state);
     }
     if(state == SEEKING){
-      TxDString("SEEKING");
+      TxDString("SEEKING\n");
       seekSequence(&state);
     }
     if(state == CHASING){
-      TxDString("CHASING");
+      TxDString("CHASING\n");
       chaseSequence(&state);
+    }
+    if(state == FLIP){
+      TxDString("FLIP\n");
+      flipSequence(&state);
     }
   }
 
@@ -1088,6 +1116,21 @@ void mDelay(u32 nTime)
   gwTimingDelay = nTime;
 
   while(gwTimingDelay != 0);
+
+  /* Disable SysTick Counter */
+  SysTick_CounterCmd(SysTick_Counter_Disable);
+  /* Clear SysTick Counter */
+  SysTick_CounterCmd(SysTick_Counter_Clear);
+}
+
+void mDelayBorderCheck(u32 nTime, int* state)
+{
+  /* Enable the SysTick Counter */
+  SysTick_CounterCmd(SysTick_Counter_Enable);
+
+  gwTimingDelay = nTime;
+
+  while(gwTimingDelay != 0 && !detectWhiteBorder(state));
 
   /* Disable SysTick Counter */
   SysTick_CounterCmd(SysTick_Counter_Disable);
