@@ -104,14 +104,14 @@ void TxDByte16(byte);
 void TxDInt32(u32);
 void TxDByte_PC(byte);
 void Timer_Configuration(void);
-void startTimeCount();
-void stopTimeCount();
-u32 getTime();
+void startTimeCount(void);
+void stopTimeCount(void);
+u32 getTime(void);
 void mDelay(u32);
 void mDelayClock(u32);
 void mDelayMusic(u32);
 void mDelayMusicBorder(u32, int* state);
-void musicHandler();
+void musicHandler(void);
 void StartDiscount(s32);
 byte CheckTimeOut(void);
 
@@ -122,9 +122,9 @@ byte CheckTimeOut(void);
 
 // change IDs here if the IDs of your motors/sensors are different
 #define MOTOR_down_left 1
-#define MOTOR_down_right 3
+#define MOTOR_down_right 2
 #define MOTOR_up_left 4
-#define MOTOR_up_right 2
+#define MOTOR_up_right 3
 #define SENSOR 100
 
 
@@ -138,7 +138,7 @@ byte CheckTimeOut(void);
 
 
 #define thresholdInfrared 50
-#define thresholdIRwhite 255
+#define thresholdIRwhite 25500000
 #define speed_ini 400
 #define speed_max 512
 
@@ -495,45 +495,45 @@ void initSequence(int* state){
   buzzWithDelay(SENSOR, 50, 200);
 
   // blink some lights
-  TxDString("blink!!\n");
+  // TxDString("blink!!\n");
   //int z;
   //for(z=0; z<3; z++)
   //{
 
   //  GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
   //  GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
   //  GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
   //  GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
   //  GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
   //  GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
   //  GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
   //  GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
-  //  mDelayMusic(250);
+  //  mDelayClock(250);
 
   //  /* TxDString("lights on...\n") ; */
   //  /* lightOn(MOTOR_up_right); */
   //  /* lightOn(MOTOR_up_left); */
   //  /* lightOn(MOTOR_down_left); */
   //  /* lightOn(MOTOR_down_right); */
-  //  /* mDelayMusic(2) ; */
+  //  /* mDelayClock(2) ; */
   //  /* TxDString("lights oFF...\n") ; */
   //  /* lightOff(MOTOR_up_right); */
   //  /* lightOff(MOTOR_up_left); */
@@ -565,7 +565,7 @@ void forward(int speed){
 int whiteBorderCount = 0;
 char detectWhiteBorder(int* state){
   unsigned char field;
-  centerInfraRed(SENSOR, &field);
+  leftInfraRed(SENSOR, &field);
   if(field >= thresholdIRwhite){
     whiteBorderCount++;
     if(whiteBorderCount > 5){
@@ -588,8 +588,11 @@ void goToCenterSequence(int* state){
 
 void seekSequence(int* state){
   unsigned char field;
-  // begin the "seeking for an opponent" phase
-  spin(speed_ini, speed_ini);  // the robot starts spinning around
+  int speed = speed_ini;
+  int long_mode = 0;
+  spin(speed, speed);  // the robot starts spinning around
+  u32 t = getTime();
+  u32 initial_t = getTime();
   while (*state == SEEKING) {
     musicHandler();
     if(detectWhiteBorder(state))
@@ -602,6 +605,17 @@ void seekSequence(int* state){
     // opponent detection will result in an attitude change
     if (field >= thresholdInfrared)  // indeed this condition should be explicit
       *state = CHASING;
+    else if (!long_mode){
+      if(getTime() - initial_t >= 5000){
+        speed = speed_max;
+        spin(speed, speed);
+        long_mode = 1;
+      } else if(getTime() - t >= 1000){
+        speed = -speed;
+        spin(speed, speed);
+        t = getTime();
+      }
+    }
   }
 }
 
@@ -627,9 +641,13 @@ void chaseSequence(int* state){
 }
 
 void flipSequence(int* state){
-  spin(speed_ini, speed_max);
-  mDelayMusicBorder(3000, state);
-  *state = SEEKING; 
+  while (*state == FLIP){
+    *state = SEEKING; 
+    forward(-speed_ini);
+    mDelayMusic(1000);
+    spin(speed_ini, speed_ini);
+    mDelayMusicBorder(2000, state);
+  }
 }
 
 // Music
@@ -642,6 +660,7 @@ int music_next_notes_delay[40] = {65,65,130,260,130,130,65,65,65,65,65,65,130,26
 
 // perform music tasks
 void musicHandler(){
+  //return;
   if(music_next_ts == 0){
     TxDString("MUSIC INIT\n");
     music_next_ts = getTime();
@@ -728,7 +747,8 @@ int main(void)
   //test capteurs
   //unsigned char field;
   //while(1){
-  //  centerInfraRed(SENSOR, &field);
+  //  //centerInfraRed(SENSOR, &field);
+  //  leftInfraRed(SENSOR, &field);
   //  TxDString("CenterInfraRed, CenterLuminosity: ");
   //  TxDByte16(field);
   //  TxDString("; ");
