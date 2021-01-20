@@ -108,8 +108,8 @@ void startTimeCount();
 void stopTimeCount();
 u32 getTime();
 void mDelay(u32);
-void mDelayClock(u32);
-void mDelayClockBorder(u32, int* state);
+void mDelayMusic(u32);
+void mDelayMusicBorder(u32, int* state);
 void musicHandler();
 void StartDiscount(s32);
 byte CheckTimeOut(void);
@@ -477,7 +477,7 @@ void stopBuzz(unsigned char sensor){
 // time is in milliseconds, so 500 means half a second
 void buzzWithDelay(unsigned char sensor, int note, int time) {
   startBuzz(sensor, note);
-  mDelayClock(time) ;
+  mDelay(time) ;
   stopBuzz(sensor);
 }
 
@@ -495,50 +495,50 @@ void initSequence(int* state){
 
   // blink some lights
   TxDString("blink!!\n");
-  int z;
-  for(z=0; z<3; z++)
-  {
+  //int z;
+  //for(z=0; z<3; z++)
+  //{
 
-    GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
-    GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
+  //  GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
+  //  mDelayMusic(250);
 
-    GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-    GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
+  //  GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
+  //  mDelayMusic(250);
 
-    GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-    GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
+  //  GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
+  //  mDelayMusic(250);
 
-    GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-    GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
+  //  GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
+  //  mDelayMusic(250);
 
-    GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
-    GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
+  //  GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
+  //  mDelayMusic(250);
 
-    GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
-    GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
+  //  GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
+  //  mDelayMusic(250);
 
-    GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
-    GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
-    mDelayClock(250);
+  //  GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
+  //  GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
+  //  mDelayMusic(250);
 
-    /* TxDString("lights on...\n") ; */
-    /* lightOn(MOTOR_up_right); */
-    /* lightOn(MOTOR_up_left); */
-    /* lightOn(MOTOR_down_left); */
-    /* lightOn(MOTOR_down_right); */
-    /* mDelayClock(2) ; */
-    /* TxDString("lights oFF...\n") ; */
-    /* lightOff(MOTOR_up_right); */
-    /* lightOff(MOTOR_up_left); */
-    /* lightOff(MOTOR_down_left); */
-    /* lightOff(MOTOR_down_right); */
-  }
+  //  /* TxDString("lights on...\n") ; */
+  //  /* lightOn(MOTOR_up_right); */
+  //  /* lightOn(MOTOR_up_left); */
+  //  /* lightOn(MOTOR_down_left); */
+  //  /* lightOn(MOTOR_down_right); */
+  //  /* mDelayMusic(2) ; */
+  //  /* TxDString("lights oFF...\n") ; */
+  //  /* lightOff(MOTOR_up_right); */
+  //  /* lightOff(MOTOR_up_left); */
+  //  /* lightOff(MOTOR_down_left); */
+  //  /* lightOff(MOTOR_down_right); */
+  //}
 
   *state = GO_TO_CENTER;
 }
@@ -583,7 +583,7 @@ void goToCenterSequence(int* state){
     forward(speed_ini);
 
     // advance for 3s, maybe adapt...
-    mDelayClockBorder(3000, state);
+    mDelayMusicBorder(3000, state);
     *state = SEEKING;
   }
 }
@@ -630,7 +630,7 @@ void chaseSequence(int* state){
 
 void flipSequence(int* state){
   spin(speed_ini, speed_max);
-  mDelayClockBorder(3000, state);
+  mDelayMusicBorder(3000, state);
   *state = SEEKING; 
 }
 
@@ -1192,7 +1192,7 @@ void mDelay(u32 nTime)
   stopTimeCount();
 }
 
-void mDelayClock(u32 nTime)
+void mDelayMusic(u32 nTime)
 {
   u32 end_ts = getTime() + nTime;
   while(gwTimingDelay < end_ts){
@@ -1200,7 +1200,7 @@ void mDelayClock(u32 nTime)
   }
 }
 
-void mDelayClockBorder(u32 nTime, int* state)
+void mDelayMusicBorder(u32 nTime, int* state)
 {
   u32 end_ts = getTime() + nTime;
   while(gwTimingDelay < end_ts && !detectWhiteBorder(state)){
