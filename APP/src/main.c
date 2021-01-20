@@ -108,7 +108,9 @@ void startTimeCount();
 void stopTimeCount();
 u32 getTime();
 void mDelay(u32);
-void mDelayBorderCheck(u32, int* state);
+void mDelayClock(u32);
+void mDelayClockBorder(u32, int* state);
+void musicHandler();
 void StartDiscount(s32);
 byte CheckTimeOut(void);
 
@@ -460,22 +462,23 @@ void timeBuzz(unsigned char sensor, int time) {
   }
 }
 
-// play a note of given duration on the AX-S1.
-// tim is in milliseconds, so 500 means half a second
-void buzzWithDelay(unsigned char sensor, int note, int time) {
-  int k = 0;
+void startBuzz(unsigned char sensor, int note){
   // infinite duration buzz
   timeBuzz(sensor,254);
   noteBuzz(sensor, note);
+}
 
-  for (k=0; k<time; k++) {
-    mDelay(1) ;
-  }
-
+void stopBuzz(unsigned char sensor){
   // shut off buzz
   timeBuzz(sensor,0) ;
-  return ;
+}
 
+// play a note of given duration on the AX-S1.
+// time is in milliseconds, so 500 means half a second
+void buzzWithDelay(unsigned char sensor, int note, int time) {
+  startBuzz(sensor, note);
+  mDelayClock(time) ;
+  stopBuzz(sensor);
 }
 
 
@@ -498,38 +501,38 @@ void initSequence(int* state){
 
     GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
     GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-    mDelay(250);
+    mDelayClock(250);
 
     GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
     GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-    mDelay(250);
+    mDelayClock(250);
 
     GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
     GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-    mDelay(250);
+    mDelayClock(250);
 
     GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
     GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
-    mDelay(250);
+    mDelayClock(250);
 
     GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
     GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
-    mDelay(250);
+    mDelayClock(250);
 
     GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
     GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
-    mDelay(250);
+    mDelayClock(250);
 
     GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
     GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
-    mDelay(250);
+    mDelayClock(250);
 
     /* TxDString("lights on...\n") ; */
     /* lightOn(MOTOR_up_right); */
     /* lightOn(MOTOR_up_left); */
     /* lightOn(MOTOR_down_left); */
     /* lightOn(MOTOR_down_right); */
-    /* mDelay(2) ; */
+    /* mDelayClock(2) ; */
     /* TxDString("lights oFF...\n") ; */
     /* lightOff(MOTOR_up_right); */
     /* lightOff(MOTOR_up_left); */
@@ -580,7 +583,7 @@ void goToCenterSequence(int* state){
     forward(speed_ini);
 
     // advance for 3s, maybe adapt...
-    mDelayBorderCheck(3000, state);
+    mDelayClockBorder(3000, state);
     *state = SEEKING;
   }
 }
@@ -589,6 +592,7 @@ void seekSequence(int* state){
   unsigned char field;
   // begin the "seeking for an opponent" phase
   while (*state == SEEKING) {
+    musicHandler();
     if(detectWhiteBorder(state))
       break;
     spin(speed_ini, speed_ini);  // the robot starts spinning around
@@ -608,6 +612,7 @@ void chaseSequence(int* state){
   // the robot will focus the opponent and try to push him away,
   // as hard as possible
   while (*state == CHASING) {
+    musicHandler();
     if(detectWhiteBorder(state))
       break;
     forward(speed_max);
@@ -625,8 +630,40 @@ void chaseSequence(int* state){
 
 void flipSequence(int* state){
   spin(speed_ini, speed_max);
-  mDelay(2000);
+  mDelayClockBorder(3000, state);
   *state = SEEKING; 
+}
+
+// Music
+byte music_current_note;
+byte playing;
+u32 music_next_ts = 0;
+int music_notes[40] = {17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22};
+int music_notes_length[40] = {65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65};
+int music_next_notes_delay[40] = {65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65};
+
+// perform music tasks
+void musicHandler(){
+  if(music_next_ts == 0){
+    music_next_ts = getTime();
+    playing = 0;
+    music_current_note = 0;
+  }
+  if(music_current_note == 40){
+    music_current_note = 0;
+  }
+  if(getTime() >= music_next_ts){
+    if(playing){
+      stopBuzz(SENSOR);
+      playing = 0;
+      music_next_ts = music_next_ts + music_next_notes_delay[music_current_note];
+      music_current_note++;
+    } else {
+      startBuzz(SENSOR, music_notes[music_current_note]);
+      playing = 1;
+      music_next_ts = music_next_ts + music_notes_length[music_current_note];
+    }
+  }
 }
 
 int main(void)
@@ -691,8 +728,8 @@ int main(void)
   //  TxDString("\n");
   //}
 
+  startTimeCount();
   state = INIT;
-
   // state should equal INIT only at the beginning of each match
   while(state != STOP)
   {
@@ -1155,11 +1192,20 @@ void mDelay(u32 nTime)
   stopTimeCount();
 }
 
-void mDelayBorderCheck(u32 nTime, int* state)
+void mDelayClock(u32 nTime)
 {
-  startTimeCount();
-  while(gwTimingDelay != 0 && !detectWhiteBorder(state));
-  stopTimeCount();
+  u32 end_ts = getTime() + nTime;
+  while(gwTimingDelay < end_ts){
+    musicHandler();
+  }
+}
+
+void mDelayClockBorder(u32 nTime, int* state)
+{
+  u32 end_ts = getTime() + nTime;
+  while(gwTimingDelay < end_ts && !detectWhiteBorder(state)){
+    musicHandler();
+  }
 }
 
 void StartDiscount(s32 StartTime)
