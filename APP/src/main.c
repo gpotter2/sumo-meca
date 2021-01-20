@@ -108,6 +108,7 @@ void startTimeCount();
 void stopTimeCount();
 u32 getTime();
 void mDelay(u32);
+void mDelayClock(u32);
 void mDelayMusic(u32);
 void mDelayMusicBorder(u32, int* state);
 void musicHandler();
@@ -477,7 +478,7 @@ void stopBuzz(unsigned char sensor){
 // time is in milliseconds, so 500 means half a second
 void buzzWithDelay(unsigned char sensor, int note, int time) {
   startBuzz(sensor, note);
-  mDelay(time) ;
+  mDelayClock(time);
   stopBuzz(sensor);
 }
 
@@ -578,24 +579,21 @@ char detectWhiteBorder(int* state){
 }
 
 void goToCenterSequence(int* state){
-  while (*state == GO_TO_CENTER) {  // the temporisation should be adapted
-    TxDString("\nGO TO CENTER\n") ;
-    forward(speed_ini);
-
-    // advance for 3s, maybe adapt...
-    mDelayMusicBorder(3000, state);
-    *state = SEEKING;
-  }
+  TxDString("\nGO TO CENTER\n") ;
+  forward(speed_ini);
+  // advance for 3s, maybe adapt...
+  mDelayMusicBorder(3000, state);
+  *state = SEEKING;
 }
 
 void seekSequence(int* state){
   unsigned char field;
   // begin the "seeking for an opponent" phase
+  spin(speed_ini, speed_ini);  // the robot starts spinning around
   while (*state == SEEKING) {
     musicHandler();
     if(detectWhiteBorder(state))
       break;
-    spin(speed_ini, speed_ini);  // the robot starts spinning around
     centerInfraRed(SENSOR, &field);
     //
     TxDString("\nSEEKING SENSOR VALUE: ") ;
@@ -611,11 +609,11 @@ void chaseSequence(int* state){
   unsigned char field;
   // the robot will focus the opponent and try to push him away,
   // as hard as possible
+  forward(speed_max);
   while (*state == CHASING) {
     musicHandler();
     if(detectWhiteBorder(state))
       break;
-    forward(speed_max);
     centerInfraRed(SENSOR, &field);
     //
     TxDString("\nCHASING SENSOR VALUE: ") ;
@@ -645,6 +643,7 @@ int music_next_notes_delay[40] = {65,65,130,260,130,130,65,65,65,65,65,65,130,26
 // perform music tasks
 void musicHandler(){
   if(music_next_ts == 0){
+    TxDString("MUSIC INIT\n");
     music_next_ts = getTime();
     playing = 0;
     music_current_note = 0;
@@ -652,7 +651,17 @@ void musicHandler(){
   if(music_current_note == 40){
     music_current_note = 0;
   }
-  if(getTime() >= music_next_ts){
+  u32 t = getTime();
+  TxDInt32(music_next_ts);
+  TxDString(";");
+  TxDInt32(t);
+  TxDString("\n");
+  if(t >= music_next_ts){
+    TxDString("MUSIC NOTE: ");
+    TxDByte16(music_current_note);
+    TxDString(":");
+    TxDByte16(playing);
+    TxDString("\n");
     if(playing){
       stopBuzz(SENSOR);
       playing = 0;
@@ -1190,6 +1199,13 @@ void mDelay(u32 nTime)
   startTimeCount();
   while(gwTimingDelay < nTime);
   stopTimeCount();
+}
+
+
+void mDelayClock(u32 nTime)
+{
+  u32 end_ts = getTime() + nTime;
+  while(gwTimingDelay < end_ts);
 }
 
 void mDelayMusic(u32 nTime)
