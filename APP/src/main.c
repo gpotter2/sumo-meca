@@ -110,7 +110,7 @@ u32 getTime(void);
 void mDelay(u32);
 void mDelayClock(u32);
 void mDelayMusic(u32);
-void mDelayMusicBorder(u32, int* state);
+void mDelayMusicLogic(u32, int* state);
 void musicHandler(void);
 void StartDiscount(s32);
 byte CheckTimeOut(void);
@@ -130,14 +130,13 @@ byte CheckTimeOut(void);
 
 // state machine constants
 #define INIT 0
-#define GO_TO_CENTER 1
-#define SEEKING 2
-#define CHASING 3
+#define SEEKING 1
+#define CHASING 2
 #define FLIP 3
 #define STOP -1
 
 
-#define thresholdInfrared 50
+#define thresholdInfrared 4
 #define thresholdIRwhite 255
 #define speed_ini 400
 #define speed_max 512
@@ -487,12 +486,43 @@ void buzzWithDelay(unsigned char sensor, int note, int time) {
 //////////////////////////   M A I N   L O O P   ////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
+void spin(int speedr, int speedl){
+  int _speedr = speedr;
+  int _speedl = speedl;
+  setSpeed(MOTOR_up_left, _speedl);
+  setSpeed(MOTOR_up_right, _speedr);
+  setSpeed(MOTOR_down_left, _speedl);
+  setSpeed(MOTOR_down_right, _speedr);
+}
+
+void forward(int speed){
+  int _speed = speed;
+  setSpeed(MOTOR_up_left, _speed);
+  setSpeed(MOTOR_down_left, _speed);
+  setSpeed(MOTOR_up_right, -_speed);
+  setSpeed(MOTOR_down_right, -_speed);
+}
 
 void initSequence(int* state){
   // play some music
   buzzWithDelay(SENSOR, 30, 500);
   buzzWithDelay(SENSOR, 40, 200);
   buzzWithDelay(SENSOR, 50, 200);
+
+  //
+  //
+  spin(speed_ini, speed_ini);
+  mDelayMusic(900);
+  forward(speed_max);
+  mDelayMusicLogic(3500, state);
+  if(*state != INIT)
+    return;
+  spin(-speed_ini, -speed_ini);
+  mDelayMusicLogic(1800, state);
+  if(*state != INIT)
+    return;
+  forward(speed_max);
+  mDelayMusicLogic(2500, state);
 
   // blink some lights
   // TxDString("blink!!\n");
@@ -541,25 +571,7 @@ void initSequence(int* state){
   //  /* lightOff(MOTOR_down_right); */
   //}
 
-  *state = GO_TO_CENTER;
-}
-
-
-void spin(int speedr, int speedl){
-  int _speedr = speedr;
-  int _speedl = speedl;
-  setSpeed(MOTOR_up_left, _speedl);
-  setSpeed(MOTOR_up_right, _speedr);
-  setSpeed(MOTOR_down_left, _speedl);
-  setSpeed(MOTOR_down_right, _speedr);
-}
-
-void forward(int speed){
-  int _speed = speed;
-  setSpeed(MOTOR_up_left, _speed);
-  setSpeed(MOTOR_down_left, _speed);
-  setSpeed(MOTOR_up_right, -_speed);
-  setSpeed(MOTOR_down_right, -_speed);
+  *state = SEEKING;
 }
 
 int whiteBorderCount = 0;
@@ -582,40 +594,35 @@ void goToCenterSequence(int* state){
   TxDString("\nGO TO CENTER\n") ;
   forward(speed_ini);
   // advance for 3s, maybe adapt...
-  mDelayMusicBorder(3000, state);
+  mDelayMusicLogic(3000, state);
   *state = SEEKING;
 }
 
+#define AVANCER 0
+#define FLIP_DROITE 1
+#define FLIP_GAUCHE 2
 void seekSequence(int* state){
-  unsigned char field;
-  int speed = speed_ini;
-  int long_mode = 0;
-  spin(speed, speed);  // the robot starts spinning around
-  u32 t = getTime();
-  u32 initial_t = getTime();
-  while (*state == SEEKING) {
+  int sous_etat = FLIP_GAUCHE;
+  while (*state == SEEKING){
     musicHandler();
-    if(detectWhiteBorder(state))
-      break;
-    centerInfraRed(SENSOR, &field);
-    //
-    TxDString("\nSEEKING SENSOR VALUE: ") ;
-    TxDByte16(field);
-    TxDString("\n") ;
-    // opponent detection will result in an attitude change
-    if (field >= thresholdInfrared)  // indeed this condition should be explicit
-      *state = CHASING;
-    else if (!long_mode){
-      if(getTime() - initial_t >= 5000){
-        speed = speed_max;
-        spin(speed, speed);
-        long_mode = 1;
-      } else if(getTime() - t >= 1000){
-        speed = -speed;
-        spin(speed, speed);
-        t = getTime();
-      }
+    if(sous_etat == AVANCER){
+      TxDString("AVANCER\n");
+      forward(speed_max);
+      mDelayMusicLogic(3200, state);
+      sous_etat = FLIP_GAUCHE;
+    } else if (sous_etat == FLIP_DROITE){
+      TxDString("FLIP_DROITE\n");
+      spin(speed_max, speed_max);
+      mDelayMusicLogic(2400, state);
+      sous_etat = AVANCER;
+    } else if (sous_etat == FLIP_GAUCHE){
+      TxDString("FLIP_GAUCHE\n");
+      spin(-speed_max, -speed_max);
+      mDelayMusicLogic(1400, state);
+      sous_etat = FLIP_DROITE;
     }
+    if(*state != SEEKING)
+      break;
   }
 }
 
@@ -626,8 +633,6 @@ void chaseSequence(int* state){
   forward(speed_max);
   while (*state == CHASING) {
     musicHandler();
-    if(detectWhiteBorder(state))
-      break;
     centerInfraRed(SENSOR, &field);
     //
     TxDString("\nCHASING SENSOR VALUE: ") ;
@@ -637,6 +642,17 @@ void chaseSequence(int* state){
     // it returns to its seeking opponent phase
     if (field<thresholdInfrared/2)
       *state = SEEKING;
+    else if (detectWhiteBorder(state)){
+      TxDString("EJECT STATE\n");
+      mDelayMusic(2000);
+      forward(-speed_max);
+      mDelayMusic(4000);
+      spin(speed_max, speed_max);
+      mDelayMusic(3000);
+      forward(speed_ini);
+      *state = SEEKING;
+      mDelayMusicLogic(1000, state);
+    }
   }
 }
 
@@ -646,7 +662,11 @@ void flipSequence(int* state){
     forward(-speed_ini);
     mDelayMusic(1000);
     spin(speed_ini, speed_ini);
-    mDelayMusicBorder(2000, state);
+    mDelayMusicLogic(4000, state);
+    if (*state != FLIP)
+      break;
+    forward(speed_ini);
+    mDelayMusicLogic(1000, state);
   }
 }
 
@@ -654,10 +674,10 @@ void flipSequence(int* state){
 byte music_current_note;
 byte playing;
 u32 music_next_ts = 0;
-#define NB_NOTES 186
-int music_notes[NB_NOTES] = {17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,20,20,20,20,20,20,17,17,20,20,20,20,22,23,22,20,17,20,22,20,20,20,20,22,23,24,27,24,29,29,29,24,29,27,34,24,24,24,24,24,24,22,22,24,24,24,24,24,22,24,27,24,22,29,24,22,20,27,24,22,20,17,20,22,24,27};
-int music_notes_length[NB_NOTES] = {65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,195,65,65,65,195,195,195,260,195,65,65,65,195,195,65,65,65,65,130,195,65,65,65,195,195,195,195,260,195,195,65,65,65,455,520,195,65,65,65,195,195,195,260,195,65,65,65,195,195,195,195,65,195,195,195,195,195,195,195,195,195,195,195,65,195,520};
-int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,260,65,65,65,65,65,65,65,65,130,65,65,65,65,65,65,230,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,650};
+#define NB_NOTES 146
+int music_notes[NB_NOTES] = {17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,20,20,20,20,20,20,17,17,20,20,20,20,22,23,22,20,17,20,22,20,20,20,20,22,23,24,27,24,29,29,29,24,29,27,34,24,24,24,24,24,24,22,22,24,24,24,24,24,22,24,29,24,22,29,24,22,20,27,22,20,19,13,15,17,20,27};
+int music_notes_length[NB_NOTES] = {65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,195,65,65,65,195,195,195,260,195,65,65,65,195,195,65,65,65,65,130,195,65,65,65,195,195,195,195,260,195,195,65,65,65,455,520,195,65,65,65,195,195,195,260,195,65,65,65,195,195,195,195,65,195,195,195,195,195,195,195,195,195,195,195,65,195,520};
+int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,260,65,65,65,65,65,65,65,65,130,65,65,65,65,65,65,230,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,650};
 
 // perform music tasks
 void musicHandler(){
@@ -747,7 +767,7 @@ int main(void)
   //while(1){
   //  //centerInfraRed(SENSOR, &field);
   //  leftInfraRed(SENSOR, &field);
-  //  TxDString("CenterInfraRed, CenterLuminosity: ");
+  //  TxDString("InfraRed, Luminosity: ");
   //  TxDByte16(field);
   //  TxDString("; ");
   //  centerLuminosity(SENSOR, &field);
@@ -762,6 +782,9 @@ int main(void)
   //  musicHandler();
   //}
 
+  //spin(speed_max, speed_max);
+  //while(1){}
+
   state = INIT;
   // state should equal INIT only at the beginning of each match
   while(state != STOP)
@@ -769,10 +792,6 @@ int main(void)
     if(state == INIT){
       TxDString("INIT\n");
       initSequence(&state);
-    }
-    if(state == GO_TO_CENTER){
-      TxDString("CENTER\n");
-      goToCenterSequence(&state);
     }
     if(state == SEEKING){
       TxDString("SEEKING\n");
@@ -1240,11 +1259,22 @@ void mDelayMusic(u32 nTime)
   }
 }
 
-void mDelayMusicBorder(u32 nTime, int* state)
+void mDelayMusicLogic(u32 nTime, int* state)
 {
   u32 end_ts = getTime() + nTime;
+  unsigned char field;
   while(gwTimingDelay < end_ts && !detectWhiteBorder(state)){
     musicHandler();
+    centerInfraRed(SENSOR, &field);
+    //
+    TxDString("\nSEEKING SENSOR VALUE: ");
+    TxDByte16(field);
+    TxDString("\n");
+    //
+    if (field >= thresholdInfrared){
+      *state = CHASING;
+      break;
+    }
   }
 }
 
