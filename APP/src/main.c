@@ -655,7 +655,7 @@ int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,
 
 // perform music tasks
 void musicHandler(){
-  //return;
+  return;
   if(music_current_note == NB_NOTES){
     music_current_note = 0;
   }
@@ -766,9 +766,9 @@ int main(void)
   startTimeCount();
 
   //test musique
-  while(1){
-    musicHandler();
-  }
+  //while(1){
+  //  musicHandler();
+  //}
 
   //test spin
   //spin(speed_max, speed_max);
