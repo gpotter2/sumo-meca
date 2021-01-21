@@ -661,7 +661,7 @@ int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,
 
 // perform music tasks
 void musicHandler(){
-  //return;
+  return;
   if(music_next_ts == 0){
     TxDString("MUSIC INIT\n");
     music_next_ts = getTime();
