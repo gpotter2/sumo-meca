@@ -112,6 +112,8 @@ void mDelayClock(u32);
 void mDelayMusic(u32);
 void mDelayMusicLogic(u32, int* state);
 void musicHandler(void);
+void noteLightOn(int);
+void noteLightOff(int);
 void StartDiscount(s32);
 byte CheckTimeOut(void);
 
@@ -477,7 +479,7 @@ void stopBuzz(unsigned char sensor){
 // time is in milliseconds, so 500 means half a second
 void buzzWithDelay(unsigned char sensor, int note, int time) {
   startBuzz(sensor, note);
-  mDelayClock(time);
+  mDelay(time);
   stopBuzz(sensor);
 }
 
@@ -504,13 +506,6 @@ void forward(int speed){
 }
 
 void initSequence(int* state){
-  // play some music
-  buzzWithDelay(SENSOR, 30, 500);
-  buzzWithDelay(SENSOR, 40, 200);
-  buzzWithDelay(SENSOR, 50, 200);
-
-  //
-  //
   spin(speed_ini, speed_ini);
   mDelayMusic(900);
   forward(speed_max);
@@ -523,53 +518,6 @@ void initSequence(int* state){
     return;
   forward(speed_max);
   mDelayMusicLogic(2500, state);
-
-  // blink some lights
-  // TxDString("blink!!\n");
-  //int z;
-  //for(z=0; z<3; z++)
-  //{
-
-  //  GPIO_SetBits(PORT_LED_POWER, PIN_LED_POWER);
-  //  GPIO_ResetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-  //  mDelayClock(250);
-
-  //  GPIO_SetBits(PORT_LED_MANAGE, PIN_LED_MANAGE);
-  //  GPIO_ResetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-  //  mDelayClock(250);
-
-  //  GPIO_SetBits(PORT_LED_PROGRAM, PIN_LED_PROGRAM);
-  //  GPIO_ResetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-  //  mDelayClock(250);
-
-  //  GPIO_SetBits(PORT_LED_PLAY, PIN_LED_PLAY);
-  //  GPIO_ResetBits(PORT_LED_TX, PIN_LED_TX);
-  //  mDelayClock(250);
-
-  //  GPIO_SetBits(PORT_LED_TX, PIN_LED_TX);
-  //  GPIO_ResetBits(PORT_LED_RX, PIN_LED_RX);
-  //  mDelayClock(250);
-
-  //  GPIO_SetBits(PORT_LED_RX, PIN_LED_RX);
-  //  GPIO_ResetBits(PORT_LED_AUX, PIN_LED_AUX);
-  //  mDelayClock(250);
-
-  //  GPIO_SetBits(PORT_LED_AUX, PIN_LED_AUX);
-  //  GPIO_ResetBits(PORT_LED_POWER, PIN_LED_POWER);
-  //  mDelayClock(250);
-
-  //  /* TxDString("lights on...\n") ; */
-  //  /* lightOn(MOTOR_up_right); */
-  //  /* lightOn(MOTOR_up_left); */
-  //  /* lightOn(MOTOR_down_left); */
-  //  /* lightOn(MOTOR_down_right); */
-  //  /* mDelayClock(2) ; */
-  //  /* TxDString("lights oFF...\n") ; */
-  //  /* lightOff(MOTOR_up_right); */
-  //  /* lightOff(MOTOR_up_left); */
-  //  /* lightOff(MOTOR_down_left); */
-  //  /* lightOff(MOTOR_down_right); */
-  //}
 
   *state = SEEKING;
 }
@@ -670,18 +618,43 @@ void flipSequence(int* state){
   }
 }
 
+void getPinsByNote(int note, GPIO_TypeDef** PORT, int* PIN){
+  switch(note % 6){
+    case 0: *PORT = PORT_LED_MANAGE;  *PIN = PIN_LED_MANAGE ; break;
+    case 1: *PORT = PORT_LED_PROGRAM; *PIN = PIN_LED_PROGRAM ; break;
+    case 2: *PORT = PORT_LED_PLAY;    *PIN = PIN_LED_PLAY ; break;
+    case 3: *PORT = PORT_LED_TX;      *PIN = PIN_LED_TX ; break;
+    case 4: *PORT = PORT_LED_RX;      *PIN = PIN_LED_RX ; break;
+    case 5: *PORT = PORT_LED_AUX;     *PIN = PIN_LED_AUX ; break;
+  }
+}
+
+void noteLightOn(int note){
+  GPIO_TypeDef* PORT;
+  int PIN;
+  getPinsByNote(note, &PORT, &PIN);
+  GPIO_ResetBits(PORT, PIN);
+}
+
+void noteLightOff(int note){
+  GPIO_TypeDef* PORT;
+  int PIN;
+  getPinsByNote(note, &PORT, &PIN);
+  GPIO_SetBits(PORT, PIN);
+}
+
 // Music
 byte music_current_note;
 byte playing;
-u32 music_next_ts = 0;
-#define NB_NOTES 146
-int music_notes[NB_NOTES] = {17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,20,20,20,20,20,20,17,17,20,20,20,20,22,23,22,20,17,20,22,20,20,20,20,22,23,24,27,24,29,29,29,24,29,27,34,24,24,24,24,24,24,22,22,24,24,24,24,24,22,24,29,24,22,29,24,22,20,27,22,20,19,13,15,17,20,27};
-int music_notes_length[NB_NOTES] = {65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,195,65,65,65,195,195,195,260,195,65,65,65,195,195,65,65,65,65,130,195,65,65,65,195,195,195,195,260,195,195,65,65,65,455,520,195,65,65,65,195,195,195,260,195,65,65,65,195,195,195,195,65,195,195,195,195,195,195,195,195,195,195,195,65,195,520};
-int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,260,65,65,65,65,65,65,65,65,130,65,65,65,65,65,65,230,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,650};
+u32 music_next_ts = 3000;
+#define NB_NOTES 177
+int music_notes[NB_NOTES] = {17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,17,17,29,24,23,22,20,17,20,22,15,15,29,24,23,22,20,17,20,22,14,14,29,24,23,22,20,17,20,22,13,13,29,24,23,22,20,17,20,22,20,20,20,20,20,20,17,17,20,20,20,20,22,23,22,20,17,20,22,20,20,20,20,22,23,24,27,24,29,29,29,24,29,27,34,24,24,24,24,24,24,22,22,24,24,24,24,24,22,24,29,24,22,29,24,22,20,27,22,20,19,13,15,17,20,27,20,17,20,22,23,22,20,17,23,22,20,22,23,24,27,24,23,22,20,17,19,20,22,24,27,28,23,23,22,20,22};
+int music_notes_length[NB_NOTES] = {65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,65,65,130,130,130,130,195,65,65,65,195,65,65,65,195,195,195,260,195,65,65,65,195,195,65,65,65,65,130,195,65,65,65,195,195,195,195,260,195,195,65,65,65,455,520,195,65,65,65,195,195,195,260,195,65,65,65,195,195,195,195,65,195,195,195,195,195,195,195,195,195,195,195,65,195,520,65,65,65,65,65,65,65,65,65,65,195,520,195,65,195,65,65,65,65,65,65,195,195,195,195,195,195,65,65,65,1170};
+int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,130,260,130,130,65,65,65,65,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,260,65,65,65,65,65,65,65,65,130,65,65,65,65,65,65,230,65,65,65,65,65,65,65,390,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,1690,65,65,65,65,65,65,65,65,65,65,65,650,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65};
 
 // perform music tasks
 void musicHandler(){
-  return;
+  //return;
   if(music_next_ts == 0){
     TxDString("MUSIC INIT\n");
     music_next_ts = getTime();
@@ -700,11 +673,13 @@ void musicHandler(){
     TxDString("\n");
     if(playing){
       stopBuzz(SENSOR);
+      noteLightOff(music_notes[music_current_note]);
       playing = 0;
       music_next_ts = music_next_ts + music_next_notes_delay[music_current_note];
       music_current_note++;
     } else {
       startBuzz(SENSOR, music_notes[music_current_note]);
+      noteLightOn(music_notes[music_current_note]);
       playing = 1;
       music_next_ts = music_next_ts + music_notes_length[music_current_note];
     }
@@ -750,6 +725,24 @@ int main(void)
   setSpeed(MOTOR_up_right, 0);
   setSpeed(MOTOR_down_left, 0);
   setSpeed(MOTOR_down_right, 0);
+  
+  lightOn(MOTOR_up_right);
+  lightOn(MOTOR_up_left);
+  lightOn(MOTOR_down_left);
+  lightOn(MOTOR_down_right);
+
+  // Initial bait notes
+  buzzWithDelay(SENSOR, 31, 303);
+  mDelay(43);
+  buzzWithDelay(SENSOR, 19, 129);
+  mDelay(43);
+  buzzWithDelay(SENSOR, 26, 455);
+  mDelay(65);
+  buzzWithDelay(SENSOR, 24, 650);
+  mDelay(43);
+  buzzWithDelay(SENSOR, 31, 303);
+  mDelay(43);
+  buzzWithDelay(SENSOR, 26, 1040);
 
   //test buzzer
   //startTimeCount();
@@ -778,10 +771,11 @@ int main(void)
   startTimeCount();
 
   //test musique
-  //while(1){
-  //  musicHandler();
-  //}
+  while(1){
+    musicHandler();
+  }
 
+  //test spin
   //spin(speed_max, speed_max);
   //while(1){}
 
