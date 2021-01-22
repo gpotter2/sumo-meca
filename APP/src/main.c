@@ -139,10 +139,11 @@ byte CheckTimeOut(void);
 
 
 #define thresholdInfrared 4
-//#define thresholdIRwhite 255
-#define thresholdIRwhite 9999
+#define thresholdIRwhite 255
+//#define thresholdIRwhite 9999
 #define speed_ini 400
 #define speed_max 512
+#define speed_very_max 0x3ff
 
 
 //////////////////////////////////////
@@ -510,7 +511,7 @@ void initSequence(int* state){
   spin(speed_ini, speed_ini);
   mDelayMusic(900);
   forward(speed_max);
-  mDelayMusicLogic(3500, state);
+  mDelayMusicLogic(2640, state);
   if(*state != INIT)
     return;
   spin(-speed_ini, -speed_ini);
@@ -556,8 +557,8 @@ void seekSequence(int* state){
     musicHandler();
     if(sous_etat == AVANCER){
       TxDString("AVANCER\n");
-      forward(speed_max);
-      mDelayMusicLogic(3200, state);
+      forward(speed_very_max);
+      mDelayMusicLogic(1900, state);
       sous_etat = FLIP_GAUCHE;
     } else if (sous_etat == FLIP_DROITE){
       TxDString("FLIP_DROITE\n");
@@ -579,7 +580,7 @@ void chaseSequence(int* state){
   unsigned char field;
   // the robot will focus the opponent and try to push him away,
   // as hard as possible
-  forward(speed_max);
+  forward(speed_very_max);
   while (*state == CHASING) {
     musicHandler();
     centerInfraRed(SENSOR, &field);
@@ -593,6 +594,7 @@ void chaseSequence(int* state){
       *state = SEEKING;
     else if (detectWhiteBorder(state)){
       TxDString("EJECT STATE\n");
+      forward(speed_max);
       mDelayMusic(2000);
       forward(-speed_max);
       mDelayMusic(4000);
@@ -610,7 +612,7 @@ void flipSequence(int* state){
     *state = SEEKING; 
     forward(-speed_ini);
     mDelayMusic(1000);
-    spin(speed_ini, speed_ini);
+    spin(-speed_ini, -speed_ini);
     mDelayMusicLogic(4000, state);
     if (*state != FLIP)
       break;
@@ -655,7 +657,7 @@ int music_next_notes_delay[NB_NOTES] = {65,65,130,260,130,130,65,65,65,65,65,65,
 
 // perform music tasks
 void musicHandler(){
-  return;
+  //return;
   if(music_current_note == NB_NOTES){
     music_current_note = 0;
   }
@@ -753,8 +755,8 @@ int main(void)
   //test capteurs
   //unsigned char field;
   //while(1){
-  //  //centerInfraRed(SENSOR, &field);
-  //  leftInfraRed(SENSOR, &field);
+  //  centerInfraRed(SENSOR, &field);
+  //  //leftInfraRed(SENSOR, &field);
   //  TxDString("InfraRed, Luminosity: ");
   //  TxDByte16(field);
   //  TxDString("; ");
